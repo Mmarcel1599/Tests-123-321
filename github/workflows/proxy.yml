@@ -1,0 +1,28 @@
+name: Run Canada CDN Proxy
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  run-proxy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install and Run FRP Server
+      run: |
+        wget https://github.com
+        tar -xvf frp_0.54.0_linux_amd64.tar.gz
+        cd frp_0.54.0_linux_amd64
+        cp ../frps.toml ./
+        ./frps -c frps.toml &
+        
+        # Получаем внешний IP канадской виртуальной машины GitHub
+        echo "=== ВАШ КАНАДСКИЙ IP АДРЕС ДЛЯ VIRTUAL HOST ==="
+        curl ifconfig.me
+        echo -e "\n=============================================="
+        
+        # Оставляем сервер работать (Actions будет крутиться бесплатно до 6 часов)
+        sleep 21600
