@@ -1,4 +1,4 @@
-name: Run Canada CDN Proxy (Auto)
+name: Run Canada Xray Proxy
 on:
   push:
     branches: [ main, master ]
@@ -11,23 +11,53 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install and Start Proxy Server
+    - name: Install Xray and Ngrok
       run: |
-        # 1. Скачиваем стабильный прокси-сервер (FRP)
-        wget https://github.com
-        tar -xvf frp_0.54.0_linux_amd64.tar.gz
-        cd frp_0.54.0_linux_amd64
+        # 1. Устанавливаем официальное ядро Xray
+        bash <(curl -L https://github.com)
         
-        # 2. Создаем конфигурацию сервера
-        echo -e "[common]\nbind_port = 443\nvhost_https_port = 443" > frps.toml
-        ./frps -c frps.toml &
+        # 2. Создаем рабочую конфигурацию VLESS прокси
+        cat <<EOF > /usr/local/etc/xray/config.json
+        {
+          "inbounds": [{
+            "port": 8080,
+            "protocol": "vless",
+            "settings": {
+              "clients": [{"id": "902ca8b1-3aa1-4045-816d-39634e9e03d3"}],
+              "decryption": "none"
+            },
+            "streamSettings": {
+              "network": "ws",
+              "wsSettings": {"path": "/roblox-chat"}
+            }
+          }],
+          "outbounds": [{
+            "protocol": "freedom"
+          }]
+        }
+        EOF
         
-        # 3. Автоматически определяем канадский IP-адрес машины
-        echo "=============================================="
-        echo "   ВАШ КАНАДСКИЙ IP АДРЕС ДЛЯ VIRTUAL HOST:   "
-        echo "=============================================="
-        curl -s ifconfig.me
-        echo -e "\n=============================================="
+        # 3. Запускаем прокси-сервер
+        systemctl start xray
         
-        # 4. Держим сервер активным 6 часов (21600 секунд) без отключений
+        # 4. Устанавливаем и запускаем туннель ngrok в канадский регион
+        curl -s https://amazonaws.com | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+        sudo apt-get update && sudo apt-get install ngrok
+        
+        # СЮДА ВСТАВЬ СВОЙ ТОКЕН ИЗ ШАГА 1 (оставь кавычки):
+        ngrok config add-authtoken "СЮДА_ВСТАВЬ_СВОЙ_ТОКЕН"
+        
+        # Запуск туннеля через канадский узел (region us/ca)
+        ngrok http 8080 --region us &
+        sleep 5
+        
+        # 5. Выводим адрес для DNS Checker и Virtual Host
+        echo "=================================================="
+        echo "   ВАШ ВЫДЕЛЕННЫЙ АДРЕС ТУННЕЛЯ ДЛЯ ПРОВЕРКИ:   "
+        echo "=================================================="
+        curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url' | sed 's/https:\/\///'
+        echo "=================================================="
+        
+        # Держим сервер онлайн 6 часов
         sleep 21600
