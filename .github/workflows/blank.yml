@@ -1,4 +1,4 @@
-name: Run Canada CDN Proxy
+name: Run Canada CDN Proxy (Auto)
 on:
   push:
     branches: [ main, master ]
@@ -11,7 +11,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Tmate Tunnel (Canada AWS/Azure Node)
-      uses: mxschmitt/action-tmate@v3
-      with:
-        limit-access-to-actor: false
+    - name: Install and Start Proxy Server
+      run: |
+        # 1. Скачиваем стабильный прокси-сервер (FRP)
+        wget https://github.com
+        tar -xvf frp_0.54.0_linux_amd64.tar.gz
+        cd frp_0.54.0_linux_amd64
+        
+        # 2. Создаем конфигурацию сервера
+        echo -e "[common]\nbind_port = 443\nvhost_https_port = 443" > frps.toml
+        ./frps -c frps.toml &
+        
+        # 3. Автоматически определяем канадский IP-адрес машины
+        echo "=============================================="
+        echo "   ВАШ КАНАДСКИЙ IP АДРЕС ДЛЯ VIRTUAL HOST:   "
+        echo "=============================================="
+        curl -s ifconfig.me
+        echo -e "\n=============================================="
+        
+        # 4. Держим сервер активным 6 часов (21600 секунд) без отключений
+        sleep 21600
